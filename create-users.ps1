@@ -1,97 +1,58 @@
-param(
-    [string]$GithubRepoUrl = "https://raw.githubusercontent.com/Diokarn/user-injector/main",
+# Script PowerShell pour ajouter des utilisateurs à Active Directory
+param (
     [switch]$DryRun
 )
 
-# Définition des chemins locaux des fichiers téléchargés
-$csvUsersPath = "C:\Scripts\users.csv"
-$csvAdminsPath = "C:\Scripts\admin.csv"
-
-# Définition des OUs pour le domaine RAGNAR.lan
-$OUClients = "OU=Client,OU=Utilisateurs,DC=RAGNAR,DC=lan"
-$OUAdmins = "OU=Administrateur,OU=Utilisateurs,DC=RAGNAR,DC=lan"
-
-# Fonction pour télécharger un fichier depuis GitHub
-function Download-File {
-    param(
-        [string]$fileName,
-        [string]$destinationPath
-    )
-
-    $fileUrl = "$GithubRepoUrl/$fileName"
-    Write-Host "Téléchargement de $fileName depuis $fileUrl..."
-    
-    try {
-        Invoke-WebRequest -Uri $fileUrl -OutFile $destinationPath -ErrorAction Stop
-        Write-Host "Téléchargement réussi : $destinationPath"
-    } catch {
-        Write-Host "Erreur lors du téléchargement de $fileName : $_"
-        exit 1
-    }
+# Définition des fichiers CSV et des OUs correspondantes
+$CsvFiles = @{
+    "users.csv" = "OU=Client,OU=Utilisateurs,DC=RAGNAR,DC=lan"
+    "admin.csv" = "OU=Administrateur,OU=Utilisateurs,DC=RAGNAR,DC=lan"
 }
 
-# Fonction pour créer un utilisateur dans AD
-function Create-User {
-    param (
-        [string]$firstName,
-        [string]$lastName,
-        [SecureString]$password,
-        [string]$targetOU
-    )
-
-    $userName = "$firstName.$lastName"  # Format du SamAccountName
-
-    # Vérifier si l'utilisateur existe déjà
-    $existingUser = Get-ADUser -Filter {SamAccountName -eq $userName} -ErrorAction SilentlyContinue
-    if ($existingUser) {
-        Write-Host "L'utilisateur $userName existe déjà."
-        return
-    }
-
-    # Si DryRun est activé, ne pas créer l'utilisateur mais afficher un message
-    if ($DryRun) {
-        Write-Host "DryRun : Création de l'utilisateur $userName avec mot de passe '$password' dans l'OU $targetOU"
-    } else {
-        # Création de l'utilisateur dans AD
-        New-ADUser -SamAccountName $userName `
-                   -UserPrincipalName "$userName@RAGNAR.lan" `
-                   -GivenName $firstName `
-                   -Surname $lastName `
-                   -Name $userName `
-                   -DisplayName "$firstName $lastName" `
-                   -Path $targetOU `
-                   -AccountPassword (ConvertTo-SecureString -AsPlainText $password -Force) `
-                   -Enabled $true
-        Write-Host "L'utilisateur $userName a été créé avec succès dans l'OU $targetOU"
-    }
+# Vérification de la connexion à Active Directory
+try {
+    Import-Module ActiveDirectory -ErrorAction Stop
+} catch {
+    Write-Host "Le module Active Directory n'est pas disponible. Assurez-vous que vous êtes sur un contrôleur de domaine ou que les RSAT sont installés." -ForegroundColor Red
+    exit 1
 }
 
-# Télécharger les fichiers depuis GitHub
-Download-File -fileName "users.csv" -destinationPath $csvUsersPath
-Download-File -fileName "admin.csv" -destinationPath $csvAdminsPath
-
-# Importer et traiter les utilisateurs Clients
-if (Test-Path $csvUsersPath) {
-    $users = Import-Csv -Path $csvUsersPath
-    Write-Host "Importation des utilisateurs Clients..."
+# Parcours des fichiers CSV et traitement des utilisateurs
+foreach ($CsvPath in $CsvFiles.Keys) {
+    $TargetOU = $CsvFiles[$CsvPath]
     
+    if (-not (Test-Path $CsvPath)) {
+        Write-Host "Le fichier CSV spécifié n'existe pas : $CsvPath" -ForegroundColor Red
+        continue
+    }
+
+    Write-Host "Traitement du fichier $CsvPath pour l'OU $TargetOU" -ForegroundColor Cyan
+    
+    $users = Import-Csv -Path $CsvPath
+
     foreach ($user in $users) {
-        Create-User -firstName $user.first_name -lastName $user.last_name -password $user.password -targetOU $OUClients
+        $username = "$($user.first_name).$($user.last_name)".ToLower()
+        $password = ConvertTo-SecureString $user.password -AsPlainText -Force
+        $displayName = "$($user.first_name) $($user.last_name)"
+        $userPrincipalName = "$username@RAGNAR.lan"
+        
+        Write-Host "Création de l'utilisateur : $displayName ($username)" -ForegroundColor Cyan
+        
+        if ($DryRun) {
+            Write-Host "[Dry Run] Ajout de l'utilisateur $username à $TargetOU" -ForegroundColor Yellow
+        } else {
+            New-ADUser -SamAccountName $username \
+                       -UserPrincipalName $userPrincipalName \
+                       -Name $displayName \
+                       -GivenName $user.first_name \
+                       -Surname $user.last_name \
+                       -Path $TargetOU \
+                       -AccountPassword $password \
+                       -Enabled $true \
+                       -PasswordNeverExpires $true \
+                       -PassThru
+        }
     }
-} else {
-    Write-Host "Le fichier $csvUsersPath est introuvable !"
 }
 
-# Importer et traiter les utilisateurs Administrateurs
-if (Test-Path $csvAdminsPath) {
-    $admins = Import-Csv -Path $csvAdminsPath
-    Write-Host "Importation des Administrateurs..."
-    
-    foreach ($admin in $admins) {
-        Create-User -firstName $admin.first_name -lastName $admin.last_name -password $admin.password -targetOU $OUAdmins
-    }
-} else {
-    Write-Host "Le fichier $csvAdminsPath est introuvable !"
-}
-
-Write-Host "Opération terminée !"
+Write-Host "Opération terminée." -ForegroundColor Green
