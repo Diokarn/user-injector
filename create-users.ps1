@@ -5,8 +5,8 @@ param (
 
 # Définition des fichiers CSV et des OUs correspondantes
 $CsvFiles = @{
-    "users.csv" = "OU=Client,OU=Utilisateurs,DC=RAGNAR,DC=lan"
-    "admin.csv" = "OU=Administrateur,OU=Utilisateurs,DC=RAGNAR,DC=lan"
+    "C:\Scripts\user-injector\user-injector-main\users.csv" = "OU=Client,OU=Utilisateurs,DC=RAGNAR,DC=lan"
+    "C:\Scripts\user-injector\user-injector-main\admin.csv" = "OU=Administrateur,OU=Utilisateurs,DC=RAGNAR,DC=lan"
 }
 
 # Vérification de la connexion à Active Directory
