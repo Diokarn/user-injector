@@ -41,16 +41,16 @@ foreach ($CsvPath in $CsvFiles.Keys) {
         if ($DryRun) {
             Write-Host "[Dry Run] Ajout de l'utilisateur $username à $TargetOU" -ForegroundColor Yellow
         } else {
-            New-ADUser -SamAccountName $username \
-                       -UserPrincipalName $userPrincipalName \
-                       -Name $displayName \
-                       -GivenName $user.first_name \
-                       -Surname $user.last_name \
-                       -Path $TargetOU \
-                       -AccountPassword $password \
-                       -Enabled $true \
-                       -PasswordNeverExpires $true \
-                       -PassThru
+            New-ADUser -SamAccountName $username `
+            -UserPrincipalName $userPrincipalName `
+            -Name $displayName `
+            -GivenName $user.first_name `
+            -Surname $user.last_name `
+            -Path $TargetOU `
+            -AccountPassword $password `
+            -Enabled $true `
+            -PasswordNeverExpires $true `
+            -PassThru
         }
     }
 }
