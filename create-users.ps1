@@ -41,8 +41,8 @@ if ($NewComputerName) {
 }
 
 # Définition des paramètres du domaine
-$domainName = "RAGNAR.lan"
-$netbiosName = "RAGNAR"
+$domainName = "RAGNARDC.lan"
+$netbiosName = "RAGNARDC"
 $adminPassword = (ConvertTo-SecureString "Admin123!" -AsPlainText -Force)
 $SafeModeAdminPassword = (ConvertTo-SecureString "Admin123!" -AsPlainText -Force)
 
