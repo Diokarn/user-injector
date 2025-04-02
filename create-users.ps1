@@ -119,25 +119,33 @@ function Create-ADUserFromCSV {
     )
     $users = Import-Csv -Path $csvPath
     foreach ($user in $users) {
-        $SamAccountName = "$($user.Prenom).$($user.Nom)"
-        if (-not (Get-ADUser -Filter {SamAccountName -eq $SamAccountName} -ErrorAction SilentlyContinue)) {
-            $Password = ConvertTo-SecureString "Azerty123!" -AsPlainText -Force
-            New-ADUser `
-                -GivenName $user.Prenom `
-                -Surname $user.Nom `
-                -Name "$($user.Prenom) $($user.Nom)" `
-                -SamAccountName $SamAccountName `
-                -UserPrincipalName "$SamAccountName@$domainName" `
-                -Path $ouPath `
-                -AccountPassword $Password `
-                -Enabled $true `
-                -ChangePasswordAtLogon $false
-            Write-Host "Utilisateur créé : $SamAccountName"
+        # Construction d'un SamAccountName correct
+        $SamAccountName = "$($user.Prenom.Trim()).$($user.Nom.Trim())"  # On s'assure que les noms n'ont pas d'espaces inutiles
+        
+        # Validation du format du SamAccountName (par exemple, pas d'espaces ni caractères invalides)
+        if ($SamAccountName -match "^[a-zA-Z0-9._-]+$") {
+            if (-not (Get-ADUser -Filter {SamAccountName -eq $SamAccountName} -ErrorAction SilentlyContinue)) {
+                $Password = ConvertTo-SecureString "Azerty123!" -AsPlainText -Force
+                New-ADUser `
+                    -GivenName $user.Prenom `
+                    -Surname $user.Nom `
+                    -Name "$($user.Prenom) $($user.Nom)" `
+                    -SamAccountName $SamAccountName `
+                    -UserPrincipalName "$SamAccountName@$domainName" `
+                    -Path $ouPath `
+                    -AccountPassword $Password `
+                    -Enabled $true `
+                    -ChangePasswordAtLogon $false
+                Write-Host "Utilisateur créé : $SamAccountName"
+            } else {
+                Write-Host "L'utilisateur existe déjà : $SamAccountName"
+            }
         } else {
-            Write-Host "L'utilisateur existe déjà : $SamAccountName"
+            Write-Host "Le nom de compte pour $($user.Prenom) $($user.Nom) est invalide (caractères non autorisés)." -ForegroundColor Red
         }
     }
 }
+
 
 Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\users.csv" -ouPath "OU=Client,OU=Utilisateurs,DC=RAGNARDC,DC=lan"
 Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\admin.csv" -ouPath "OU=Administrateur,OU=Utilisateurs,DC=RAGNARDC,DC=lan"
