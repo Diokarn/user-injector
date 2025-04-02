@@ -40,40 +40,24 @@ if ($NewComputerName) {
     }
 }
 
-# Vérification si le rôle ADDS est installé
-$ADDSInstalled = Get-WindowsFeature -Name AD-Domain-Services
-if (-not $ADDSInstalled.Installed) {
-    Write-Host "Le rôle ADDS n'est pas installé. Installation en cours..." -ForegroundColor Cyan
-    
-    # Installation du rôle Active Directory Domain Services (ADDS)
-    Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
-
-    Write-Host "Installation du rôle ADDS terminée." -ForegroundColor Green
-} else {
-    Write-Host "Le rôle ADDS est déjà installé." -ForegroundColor Green
-}
-
-# Vérification si le module Active Directory est disponible
-try {
-    Import-Module ActiveDirectory -ErrorAction Stop
-    Write-Host "Le module Active Directory a été importé avec succès." -ForegroundColor Green
-} catch {
-    Write-Host "Le module Active Directory n'est pas disponible ou n'a pas pu être chargé. Assurez-vous que le rôle ADDS est installé et que les outils de gestion sont disponibles." -ForegroundColor Red
+# Vérification du module Active Directory
+if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
+    Write-Host "Le module Active Directory n'est pas installé ou disponible." -ForegroundColor Red
     exit 1
 }
+Import-Module ActiveDirectory
 
-# Vérification si la machine est déjà un contrôleur de domaine
+# Vérifier si la machine est un contrôleur de domaine
 if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
-    Write-Host "La machine n'est pas encore un contrôleur de domaine. Promotion en cours..." -ForegroundColor Cyan
-    Import-Module ADDSDeployment
+    Write-Host "Installation du rôle ADDS..." -ForegroundColor Cyan
+    Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
 
-    # Promotion de la machine en contrôleur de domaine avec les paramètres spécifiques
+    Write-Host "Promotion du serveur en tant que contrôleur de domaine..." -ForegroundColor Cyan
+    Import-Module ADDSDeployment
     Install-ADDSForest -DomainName "RAGNAR.lan" `
                        -DomainNetbiosName "RAGNAR" `
                        -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) `
-                       -Force `
-                       -InstallDns $true `
-                       -NoGlobalCatalog:$false
+                       -Force
 
     Write-Host "Redémarrage du serveur pour finaliser la promotion..." -ForegroundColor Yellow
     Restart-Computer -Force
@@ -82,15 +66,14 @@ if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
     Write-Host "Le serveur est déjà un contrôleur de domaine." -ForegroundColor Green
 }
 
-# Pause pour s'assurer que les services AD sont opérationnels après redémarrage
-Start-Sleep -Seconds 60
+# Une fois le redémarrage effectué, on laisse un peu de temps avant de continuer
+Start-Sleep -Seconds 60  # Pause pour que les services AD se stabilisent
 
-# Vérification des services AD après redémarrage
-$retryCount = 0
-$maxRetries = 20 # Nombre max de tentatives (20 x 10s = 200 secondes)
-$waitTime = 10  # Temps d'attente entre chaque tentative en secondes
-
+# Vérification de la disponibilité des services AD
 Write-Host "Vérification de la disponibilité des services AD..." -ForegroundColor Cyan
+$retryCount = 0
+$maxRetries = 10
+$waitTime = 10  # Temps d'attente entre chaque tentative en secondes
 
 while (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue) -and $retryCount -lt $maxRetries) {
     Write-Host "Les services AD ne sont pas encore disponibles. Tentative $retryCount/$maxRetries..." -ForegroundColor Yellow
@@ -157,13 +140,13 @@ foreach ($CsvPath in $CsvFiles.Keys) {
             -Name $displayName `
             -GivenName $user.first_name `
             -Surname $user.last_name `
-            -DisplayName $displayName `
+            -Path $TargetOU `
             -AccountPassword $password `
             -Enabled $true `
-            -PassThru `
-            -Path $TargetOU
+            -PasswordNeverExpires $true `
+            -PassThru
         }
     }
 }
 
-Write-Host "Le script a terminé l'exécution." -ForegroundColor Green
+Write-Host "Opération terminée." -ForegroundColor Green
