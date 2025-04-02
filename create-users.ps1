@@ -97,7 +97,7 @@ Write-Host "Le serveur est maintenant un contrôleur de domaine et les services 
 
 # Création des unités d'organisation
 $ouList = @(
-    "OU=Utilisateurs,DC=RAGNARDC=lan",
+    "OU=Utilisateurs,DC=RAGNARDC,DC=lan",
     "OU=Client,OU=Utilisateurs,DC=RAGNARDC,DC=lan",
     "OU=Administrateur,OU=Utilisateurs,DC=RAGNARDC,DC=lan"
 )
