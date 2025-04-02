@@ -59,9 +59,23 @@ if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
         Restart-Computer -Force
         exit
     }
-} else {
-    Write-Host "Le serveur est déjà un contrôleur de domaine." -ForegroundColor Green
 }
+
+# Attendre que le service Active Directory soit disponible
+$maxRetries = 10
+$retryCount = 0
+while (-not (Get-ADDomain -ErrorAction SilentlyContinue) -and $retryCount -lt $maxRetries) {
+    Write-Host "En attente de la disponibilité d'Active Directory... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+    Start-Sleep -Seconds 10
+    $retryCount++
+}
+
+if ($retryCount -eq $maxRetries) {
+    Write-Host "Le service Active Directory n'est toujours pas disponible après attente." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Le serveur est maintenant un contrôleur de domaine." -ForegroundColor Green
 
 # Création des unités d'organisation (OU) après la promotion
 Write-Host "Création des unités d'organisation..." -ForegroundColor Cyan
