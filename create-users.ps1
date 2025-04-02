@@ -40,19 +40,24 @@ if ($NewComputerName) {
     }
 }
 
-# Vérification du module Active Directory
-if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
-    Write-Host "Le module Active Directory n'est pas installé ou disponible." -ForegroundColor Red
-    exit 1
-}
-Import-Module ActiveDirectory
+# Installation du rôle ADDS et des outils nécessaires si non présents
+$ADDSInstalled = Get-WindowsFeature -Name AD-Domain-Services
+$RSATInstalled = Get-WindowsFeature -Name RSAT-AD-PowerShell
 
-# Installation du rôle ADDS si ce n'est pas déjà fait
-if (-not (Get-WindowsFeature -Name AD-Domain-Services)) {
-    Write-Host "Installation du rôle ADDS..." -ForegroundColor Cyan
+# Installer le rôle ADDS si nécessaire
+if (-not $ADDSInstalled.Installed) {
+    Write-Host "Le rôle ADDS n'est pas installé. Installation en cours..." -ForegroundColor Cyan
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+    Write-Host "Installation du rôle ADDS terminée." -ForegroundColor Green
 } else {
     Write-Host "Le rôle ADDS est déjà installé." -ForegroundColor Green
+}
+
+# Installer le module RSAT si nécessaire
+if (-not $RSATInstalled.Installed) {
+    Write-Host "Le module RSAT n'est pas installé. Installation en cours..." -ForegroundColor Cyan
+    Install-WindowsFeature -Name RSAT-AD-PowerShell
+    Write-Host "Installation du module RSAT terminée." -ForegroundColor Green
 }
 
 # Vérifier si la machine est un contrôleur de domaine
@@ -66,7 +71,7 @@ if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
                        -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) `
                        -Force `
                        -InstallDns $true `
-                       -NoGlobalCatalog:$false
+                       -NoGlobalCatalog:$false  # Enlever la partie NoGlobalCatalog si cela pose problème
 
     Write-Host "Redémarrage du serveur pour finaliser la promotion..." -ForegroundColor Yellow
     Restart-Computer -Force
