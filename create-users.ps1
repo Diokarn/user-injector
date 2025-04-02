@@ -1,22 +1,20 @@
 param (
     [switch]$DryRun, # Permet d'exécuter le script en mode simulation sans appliquer les modifications
     [string]$NewComputerName = "SRV-ADDS", # Nom que la machine prendra après le renommage
-    [string]$StaticIP, # Adresse IP statique à attribuer
-    [string]$SubnetMask, # Masque de sous-réseau pour l'IP fixe
-    [string]$Gateway, # Passerelle par défaut
-    [string[]]$DNSServers # Serveurs DNS à configurer
+    [string]$StaticIP = "192.168.1.29", # Adresse IP statique à attribuer
+    [string]$SubnetMask = "255.255.255.0", # Masque de sous-réseau pour l'IP fixe
+    [string]$Gateway = "192.168.1.1", # Passerelle par défaut
+    [string[]]$DNSServers = "1.1.1.1" # Serveurs DNS à configurer
 )
 
 # Vérification et application de l'IP fixe
-# Vérifie si l'adresse IP est déjà configurée en mode statique
 $networkAdapter = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
 
 if ($networkAdapter -and $networkAdapter.PrefixOrigin -eq 'Manual') {
     Write-Host "L'adresse IP est déjà statique." -ForegroundColor Green
 } else {
-    # Configure une IP fixe si toutes les informations requises sont disponibles
     if ($StaticIP -and $SubnetMask -and $Gateway -and $DNSServers) {
-        $adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } # Récupère l'adaptateur réseau actif
+        $adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
         if ($adapter) {
             Write-Host "Configuration de l'IP fixe..." -ForegroundColor Cyan
             New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $StaticIP -PrefixLength $SubnetMask -DefaultGateway $Gateway
@@ -35,6 +33,9 @@ if ($NewComputerName) {
     if ($currentName -ne $NewComputerName) {
         Write-Host "Renommage de la machine de $currentName en $NewComputerName..." -ForegroundColor Cyan
         Rename-Computer -NewName $NewComputerName -Force -ErrorAction Stop
+        Write-Host "Un redémarrage est requis pour appliquer le changement de nom. Redémarrage en cours..." -ForegroundColor Yellow
+        Restart-Computer -Force
+        exit # Arrête l'exécution du script pour le relancer après redémarrage
     } else {
         Write-Host "Le nom de la machine est déjà $NewComputerName." -ForegroundColor Green
     }
@@ -54,7 +55,6 @@ Write-Host "Création des unités d'organisation..." -ForegroundColor Cyan
 $OUs = @("OU=Client,OU=Utilisateurs,DC=RAGNAR,DC=lan", "OU=Administrateur,OU=Utilisateurs,DC=RAGNAR,DC=lan")
 foreach ($OU in $OUs) {
     if (-not (Get-ADOrganizationalUnit -Filter "DistinguishedName -eq '$OU'" -ErrorAction SilentlyContinue)) {
-        # Crée l'OU si elle n'existe pas encore
         New-ADOrganizationalUnit -Name ($OU -split ",")[0].Replace("OU=", "") -Path ($OU -replace "^[^,]+,", "") -ProtectedFromAccidentalDeletion $false
     }
 }
@@ -87,17 +87,16 @@ foreach ($CsvPath in $CsvFiles.Keys) {
     $users = Import-Csv -Path $CsvPath
 
     foreach ($user in $users) {
-        $username = "$($user.first_name).$($user.last_name)".ToLower() # Génère un nom d'utilisateur en minuscules
-        $password = ConvertTo-SecureString $user.password -AsPlainText -Force # Convertit le mot de passe en chaîne sécurisée
-        $displayName = "$($user.first_name) $($user.last_name)" # Construit le nom complet
-        $userPrincipalName = "$username@RAGNAR.lan" # Définit l'UPN de l'utilisateur
+        $username = "$($user.first_name).$($user.last_name)".ToLower()
+        $password = ConvertTo-SecureString $user.password -AsPlainText -Force
+        $displayName = "$($user.first_name) $($user.last_name)"
+        $userPrincipalName = "$username@RAGNAR.lan"
         
         Write-Host "Création de l'utilisateur : $displayName ($username)" -ForegroundColor Cyan
         
         if ($DryRun) {
             Write-Host "[Dry Run] Ajout de l'utilisateur $username à $TargetOU" -ForegroundColor Yellow
         } else {
-            # Création effective de l'utilisateur Active Directory
             New-ADUser -SamAccountName $username `
             -UserPrincipalName $userPrincipalName `
             -Name $displayName `
