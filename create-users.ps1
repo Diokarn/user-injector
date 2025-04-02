@@ -53,22 +53,25 @@ if (-not $ADModule) {
 # Après l'installation, importation du module Active Directory
 Import-Module ActiveDirectory
 
-# Vérifier si le rôle ADDS est déjà installé
-$ADDSFeature = Get-WindowsFeature -Name AD-Domain-Services
-if ($ADDSFeature.Installed) {
-    Write-Host "Le rôle ADDS est déjà installé." -ForegroundColor Green
-} else {
+# Vérification si le fichier de redémarrage existe pour éviter la boucle
+$restartFlag = "C:\Scripts\user-injector\restartflag.txt"
+
+if (-not (Test-Path $restartFlag)) {
     Write-Host "Le rôle ADDS n'est pas installé. Installation en cours..." -ForegroundColor Cyan
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+    
+    # Créer un fichier pour indiquer qu'un redémarrage est nécessaire
+    New-Item -Path $restartFlag -ItemType File -Force
+    
+    Write-Host "Le rôle ADDS a été installé. Redémarrage du serveur pour finaliser la configuration..." -ForegroundColor Yellow
+    Restart-Computer -Force
+    exit  # On s'arrête ici pour redémarrer le serveur
+} else {
+    # Si le fichier existe, cela signifie que le redémarrage a eu lieu
+    Remove-Item -Path $restartFlag -Force  # Supprime le fichier de redémarrage après le redémarrage
+    
+    Write-Host "Le rôle ADDS est déjà installé. Reprise du script après redémarrage." -ForegroundColor Green
 }
-
-# Après l'installation du rôle ADDS, redémarrage du serveur
-Write-Host "Le rôle ADDS a été installé. Redémarrage du serveur pour finaliser la configuration..." -ForegroundColor Yellow
-Restart-Computer -Force
-exit  # On s'arrête ici pour que le serveur redémarre et termine la promotion
-
-# --- Après le redémarrage ---
-# Reprise du script après le redémarrage
 
 # Vérification du serveur contrôleur de domaine
 if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
