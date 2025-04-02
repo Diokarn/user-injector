@@ -119,29 +119,38 @@ function Create-ADUserFromCSV {
     )
     $users = Import-Csv -Path $csvPath
     foreach ($user in $users) {
-        # Construction d'un SamAccountName correct
-        $SamAccountName = "$($user.Prenom.Trim()).$($user.Nom.Trim())"  # On s'assure que les noms n'ont pas d'espaces inutiles
-        
-        # Validation du format du SamAccountName (par exemple, pas d'espaces ni caractères invalides)
-        if ($SamAccountName -match "^[a-zA-Z0-9._-]+$") {
-            if (-not (Get-ADUser -Filter {SamAccountName -eq $SamAccountName} -ErrorAction SilentlyContinue)) {
-                $Password = ConvertTo-SecureString "Azerty123!" -AsPlainText -Force
-                New-ADUser `
-                    -GivenName $user.Prenom `
-                    -Surname $user.Nom `
-                    -Name "$($user.Prenom) $($user.Nom)" `
-                    -SamAccountName $SamAccountName `
-                    -UserPrincipalName "$SamAccountName@$domainName" `
-                    -Path $ouPath `
-                    -AccountPassword $Password `
-                    -Enabled $true `
-                    -ChangePasswordAtLogon $false
-                Write-Host "Utilisateur créé : $SamAccountName"
+        # Vérification si les valeurs first_name et last_name ne sont pas vides
+        if (![string]::IsNullOrWhiteSpace($user.first_name) -and ![string]::IsNullOrWhiteSpace($user.last_name)) {
+            # Construction du SamAccountName en utilisant first_name et last_name
+            $SamAccountName = "$($user.first_name.Trim()).$($user.last_name.Trim())"  # On enlève les espaces superflus
+
+            # Validation du format du SamAccountName
+            if ($SamAccountName -match "^[a-zA-Z0-9._-]+$") {
+                if (-not (Get-ADUser -Filter {SamAccountName -eq $SamAccountName} -ErrorAction SilentlyContinue)) {
+                    # Création du mot de passe sécurisé
+                    $Password = ConvertTo-SecureString $user.password -AsPlainText -Force
+
+                    # Création de l'utilisateur AD
+                    New-ADUser `
+                        -GivenName $user.first_name `
+                        -Surname $user.last_name `
+                        -Name "$($user.first_name) $($user.last_name)" `
+                        -SamAccountName $SamAccountName `
+                        -UserPrincipalName "$SamAccountName@$domainName" `
+                        -Path $ouPath `
+                        -AccountPassword $Password `
+                        -Enabled $true `
+                        -ChangePasswordAtLogon $false
+
+                    Write-Host "Utilisateur créé : $SamAccountName"
+                } else {
+                    Write-Host "L'utilisateur existe déjà : $SamAccountName"
+                }
             } else {
-                Write-Host "L'utilisateur existe déjà : $SamAccountName"
+                Write-Host "Le nom de compte pour $($user.first_name) $($user.last_name) est invalide (caractères non autorisés)." -ForegroundColor Red
             }
         } else {
-            Write-Host "Le nom de compte pour $($user.Prenom) $($user.Nom) est invalide (caractères non autorisés)." -ForegroundColor Red
+            Write-Host "Le prénom ou le nom est manquant pour un utilisateur dans le fichier CSV." -ForegroundColor Red
         }
     }
 }
