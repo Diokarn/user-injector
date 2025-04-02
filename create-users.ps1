@@ -1,10 +1,10 @@
 param (
     [switch]$DryRun, # Permet d'exécuter le script en mode simulation sans appliquer les modifications
-    [string]$NewComputerName = "SRV-ADDS", # Nom que la machine prendra après le renommage
-    [string]$StaticIP = "192.168.1.29", # Adresse IP statique à attribuer
-    [string]$SubnetMask = "255.255.255.0", # Masque de sous-réseau pour l'IP fixe
-    [string]$Gateway = "192.168.1.1", # Passerelle par défaut
-    [string[]]$DNSServers = "1.1.1.1" # Serveurs DNS à configurer
+    [string]$NewComputerName, # Nom que la machine prendra après le renommage
+    [string]$StaticIP, # Adresse IP statique à attribuer
+    [string]$SubnetMask, # Masque de sous-réseau pour l'IP fixe
+    [string]$Gateway, # Passerelle par défaut
+    [string[]]$DNSServers # Serveurs DNS à configurer
 )
 
 # Vérification et application de l'IP fixe
@@ -35,7 +35,7 @@ if ($NewComputerName) {
         Rename-Computer -NewName $NewComputerName -Force -ErrorAction Stop
         Write-Host "Un redémarrage est requis pour appliquer le changement de nom. Redémarrage en cours..." -ForegroundColor Yellow
         Restart-Computer -Force
-        exit # Arrête l'exécution du script pour le relancer après redémarrage
+        exit
     } else {
         Write-Host "Le nom de la machine est déjà $NewComputerName." -ForegroundColor Green
     }
@@ -48,7 +48,14 @@ Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
 # Promotion du serveur en tant que contrôleur de domaine
 Write-Host "Promotion du serveur en tant que contrôleur de domaine..." -ForegroundColor Cyan
 Import-Module ADDSDeployment
-Install-ADDSForest -DomainName "RAGNAR.lan" -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) -Force
+Install-ADDSForest -DomainName "RAGNAR.lan" `
+                   -DomainNetbiosName "RAGNAR" `
+                   -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) `
+                   -Force
+
+Write-Host "Redémarrage du serveur pour finaliser la promotion..." -ForegroundColor Cyan
+Restart-Computer -Force
+exit
 
 # Création des unités d'organisation (OU) dans Active Directory
 Write-Host "Création des unités d'organisation..." -ForegroundColor Cyan
