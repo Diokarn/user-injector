@@ -89,11 +89,13 @@ if (-not (Check-IfDomainController)) {
 
 # Attente que les services AD soient opérationnels après redémarrage
 Write-Host "Vérification de la disponibilité des services AD..."
-Start-Sleep -Seconds 10
-while (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
-    Start-Sleep -Seconds 5
+try {
+    $domain = Get-ADDomain -ErrorAction Stop
+    Write-Host "Le serveur est maintenant un contrôleur de domaine et les services AD sont opérationnels."
+} catch {
+    Write-Host "Attention : Impossible de confirmer la connexion au domaine, mais le script continue."
 }
-Write-Host "Le serveur est maintenant un contrôleur de domaine et les services AD sont opérationnels."
+
 
 # Création des unités d'organisation
 $ouList = @(
