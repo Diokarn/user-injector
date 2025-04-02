@@ -97,9 +97,9 @@ Write-Host "Le serveur est maintenant un contrôleur de domaine et les services 
 
 # Création des unités d'organisation
 $ouList = @(
-    "OU=Utilisateurs,DC=RAGNAR,DC=lan",
-    "OU=Client,OU=Utilisateurs,DC=RAGNAR,DC=lan",
-    "OU=Administrateur,OU=Utilisateurs,DC=RAGNAR,DC=lan"
+    "OU=Utilisateurs,DC=RAGNARDC=lan",
+    "OU=Client,OU=Utilisateurs,DC=RAGNARDC,DC=lan",
+    "OU=Administrateur,OU=Utilisateurs,DC=RAGNARDC,DC=lan"
 )
 
 foreach ($ou in $ouList) {
@@ -139,7 +139,7 @@ function Create-ADUserFromCSV {
     }
 }
 
-Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\users.csv" -ouPath "OU=Client,OU=Utilisateurs,DC=RAGNAR,DC=lan"
-Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\admin.csv" -ouPath "OU=Administrateur,OU=Utilisateurs,DC=RAGNAR,DC=lan"
+Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\users.csv" -ouPath "OU=Client,OU=Utilisateurs,DC=RAGNARDC,DC=lan"
+Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\admin.csv" -ouPath "OU=Administrateur,OU=Utilisateurs,DC=RAGNARDC,DC=lan"
 
 Write-Host "Opération terminée."
