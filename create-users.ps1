@@ -1,7 +1,42 @@
-# Script PowerShell pour ajouter des utilisateurs à Active Directory
 param (
-    [switch]$DryRun
+    [switch]$DryRun,
+    [string]$NewComputerName,
+    [string]$StaticIP,
+    [string]$SubnetMask,
+    [string]$Gateway,
+    [string[]]$DNSServers
 )
+
+# Vérification et application de l'IP fixe
+$networkAdapter = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
+
+if ($networkAdapter -and $networkAdapter.PrefixOrigin -eq 'Manual') {
+    Write-Host "L'adresse IP est déjà statique." -ForegroundColor Green
+} else {
+    if ($StaticIP -and $SubnetMask -and $Gateway -and $DNSServers) {
+        $adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
+        if ($adapter) {
+            Write-Host "Configuration de l'IP fixe..." -ForegroundColor Cyan
+            New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $StaticIP -PrefixLength $SubnetMask -DefaultGateway $Gateway
+            Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ServerAddresses $DNSServers
+        } else {
+            Write-Host "Aucune carte réseau active trouvée." -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Les paramètres d'IP statique sont incomplets." -ForegroundColor Red
+    }
+}
+
+# Renommage de la machine
+if ($NewComputerName) {
+    $currentName = $env:COMPUTERNAME
+    if ($currentName -ne $NewComputerName) {
+        Write-Host "Renommage de la machine de $currentName en $NewComputerName..." -ForegroundColor Cyan
+        Rename-Computer -NewName $NewComputerName -Force -ErrorAction Stop
+    } else {
+        Write-Host "Le nom de la machine est déjà $NewComputerName." -ForegroundColor Green
+    }
+}
 
 # Définition des fichiers CSV et des OUs correspondantes
 $CsvFiles = @{
