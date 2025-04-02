@@ -47,11 +47,16 @@ if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
 }
 Import-Module ActiveDirectory
 
-# Vérifier si la machine est un contrôleur de domaine
-if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
+# Installation du rôle ADDS si ce n'est pas déjà fait
+if (-not (Get-WindowsFeature -Name AD-Domain-Services)) {
     Write-Host "Installation du rôle ADDS..." -ForegroundColor Cyan
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+} else {
+    Write-Host "Le rôle ADDS est déjà installé." -ForegroundColor Green
+}
 
+# Vérifier si la machine est un contrôleur de domaine
+if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
     Write-Host "Promotion du serveur en tant que contrôleur de domaine..." -ForegroundColor Cyan
     Import-Module ADDSDeployment
 
@@ -61,6 +66,7 @@ if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
                        -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) `
                        -Force `
                        -InstallDns $true `
+                       -NoGlobalCatalog:$false
 
     Write-Host "Redémarrage du serveur pour finaliser la promotion..." -ForegroundColor Yellow
     Restart-Computer -Force
