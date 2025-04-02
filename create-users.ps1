@@ -42,16 +42,18 @@ if ($NewComputerName) {
 
 # Vérification du module Active Directory
 if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
-    Write-Host "Le module Active Directory n'est pas installé ou disponible." -ForegroundColor Red
-    exit 1
-}
-Import-Module ActiveDirectory
-
-# Vérifier si la machine est un contrôleur de domaine
-if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
-    Write-Host "Installation du rôle ADDS..." -ForegroundColor Cyan
+    Write-Host "Le module Active Directory n'est pas installé ou disponible. Installation du rôle AD DS..." -ForegroundColor Cyan
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+    Write-Host "Rôle AD DS installé. Redémarrage nécessaire..." -ForegroundColor Yellow
+    Restart-Computer -Force
+    exit
+}
 
+# Importation du module Active Directory
+Import-Module ActiveDirectory -ErrorAction Stop
+
+# Vérification si la machine est un contrôleur de domaine
+if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
     Write-Host "Promotion du serveur en tant que contrôleur de domaine..." -ForegroundColor Cyan
     Import-Module ADDSDeployment
     Install-ADDSForest -DomainName "RAGNAR.lan" `
@@ -67,6 +69,7 @@ if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
 }
 
 # Pause pour s'assurer que les services AD sont opérationnels après redémarrage
+Write-Host "Le serveur a été promu en contrôleur de domaine. Attente des services AD..." -ForegroundColor Cyan
 Start-Sleep -Seconds 60
 
 # Vérification des services AD après redémarrage
