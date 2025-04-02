@@ -33,10 +33,8 @@ if ($NewComputerName) {
         Write-Host "Renommage de la machine de $currentName en $NewComputerName..." -ForegroundColor Cyan
         Rename-Computer -NewName $NewComputerName -Force -ErrorAction Stop
         Write-Host "Redémarrage nécessaire après le changement de nom..." -ForegroundColor Yellow
-        if (-not $DryRun) {
-            Restart-Computer -Force
-            exit
-        }
+        Restart-Computer -Force
+        exit
     } else {
         Write-Host "Le nom de la machine est déjà $NewComputerName." -ForegroundColor Green
     }
@@ -55,27 +53,32 @@ if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
                        -Force
 
     Write-Host "Redémarrage du serveur pour finaliser la promotion..." -ForegroundColor Yellow
-    if (-not $DryRun) {
-        Restart-Computer -Force
-        exit
-    }
+    Restart-Computer -Force
+    exit
+} else {
+    Write-Host "Le serveur est déjà un contrôleur de domaine." -ForegroundColor Green
 }
 
-# Attendre que le service Active Directory soit disponible
-$maxRetries = 10
+# Attendre que les services AD soient opérationnels après la promotion
 $retryCount = 0
+$maxRetries = 20 # Nombre max de tentatives (20 x 10s = 200 secondes)
+$waitTime = 10  # Temps d'attente entre chaque tentative en secondes
+
+Write-Host "Vérification de la disponibilité des services AD..." -ForegroundColor Cyan
+
 while (-not (Get-ADDomain -ErrorAction SilentlyContinue) -and $retryCount -lt $maxRetries) {
-    Write-Host "En attente de la disponibilité d'Active Directory... ($retryCount/$maxRetries)" -ForegroundColor Yellow
-    Start-Sleep -Seconds 10
+    Write-Host "Les services AD ne sont pas encore disponibles. Tentative $retryCount/$maxRetries..." -ForegroundColor Yellow
+    Start-Service NTDS  # Démarrer le service AD si nécessaire
+    Start-Sleep -Seconds $waitTime
     $retryCount++
 }
 
 if ($retryCount -eq $maxRetries) {
-    Write-Host "Le service Active Directory n'est toujours pas disponible après attente." -ForegroundColor Red
+    Write-Host "Échec : Les services AD ne sont toujours pas disponibles après $maxRetries tentatives." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "Le serveur est maintenant un contrôleur de domaine." -ForegroundColor Green
+Write-Host "Le serveur est maintenant un contrôleur de domaine et les services AD sont opérationnels." -ForegroundColor Green
 
 # Création des unités d'organisation (OU) après la promotion
 Write-Host "Création des unités d'organisation..." -ForegroundColor Cyan
