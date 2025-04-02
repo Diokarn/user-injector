@@ -57,8 +57,18 @@ if (-not (Get-WindowsFeature -Name AD-Domain-Services).Installed) {
     Write-Host "Le rôle ADDS est déjà installé. Reprise du script après redémarrage."
 }
 
+# Fonction pour vérifier si le serveur est un contrôleur de domaine
+function Check-IfDomainController {
+    try {
+        $domain = Get-ADDomain -ErrorAction Stop
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 # Promotion du serveur en contrôleur de domaine si nécessaire
-if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
+if (-not (Check-IfDomainController)) {
     Write-Host "Promotion du serveur en tant que contrôleur de domaine..."
     Install-ADDSForest `
         -DomainName $domainName `
@@ -77,7 +87,7 @@ if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
     Write-Host "Le serveur est déjà un contrôleur de domaine."
 }
 
-# Vérification de la disponibilité des services AD
+# Attente que les services AD soient opérationnels après redémarrage
 Write-Host "Vérification de la disponibilité des services AD..."
 Start-Sleep -Seconds 10
 while (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
