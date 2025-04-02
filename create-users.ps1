@@ -41,10 +41,16 @@ if ($NewComputerName) {
 }
 
 # Vérification du module Active Directory
-if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
-    Write-Host "Le module Active Directory n'est pas installé ou disponible." -ForegroundColor Red
-    exit 1
+$ADModule = Get-Module -ListAvailable -Name ActiveDirectory
+if (-not $ADModule) {
+    Write-Host "Le module Active Directory n'est pas installé. Installation en cours..." -ForegroundColor Cyan
+    # Installation du module RSAT (si nécessaire)
+    if (-not (Get-WindowsFeature RSAT-AD-PowerShell).Installed) {
+        Install-WindowsFeature RSAT-AD-PowerShell
+    }
 }
+
+# Après l'installation, importation du module Active Directory
 Import-Module ActiveDirectory
 
 # Vérifier si le rôle ADDS est déjà installé
