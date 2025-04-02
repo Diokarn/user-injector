@@ -40,29 +40,31 @@ if ($NewComputerName) {
     }
 }
 
-# Installation du rôle ADDS et des outils nécessaires si non présents
+# Vérification si le rôle ADDS est installé
 $ADDSInstalled = Get-WindowsFeature -Name AD-Domain-Services
-$RSATInstalled = Get-WindowsFeature -Name RSAT-AD-PowerShell
-
-# Installer le rôle ADDS si nécessaire
 if (-not $ADDSInstalled.Installed) {
     Write-Host "Le rôle ADDS n'est pas installé. Installation en cours..." -ForegroundColor Cyan
+    
+    # Installation du rôle Active Directory Domain Services (ADDS)
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+
     Write-Host "Installation du rôle ADDS terminée." -ForegroundColor Green
 } else {
     Write-Host "Le rôle ADDS est déjà installé." -ForegroundColor Green
 }
 
-# Installer le module RSAT si nécessaire
-if (-not $RSATInstalled.Installed) {
-    Write-Host "Le module RSAT n'est pas installé. Installation en cours..." -ForegroundColor Cyan
-    Install-WindowsFeature -Name RSAT-AD-PowerShell
-    Write-Host "Installation du module RSAT terminée." -ForegroundColor Green
+# Vérification si le module Active Directory est disponible
+try {
+    Import-Module ActiveDirectory -ErrorAction Stop
+    Write-Host "Le module Active Directory a été importé avec succès." -ForegroundColor Green
+} catch {
+    Write-Host "Le module Active Directory n'est pas disponible ou n'a pas pu être chargé. Assurez-vous que le rôle ADDS est installé et que les outils de gestion sont disponibles." -ForegroundColor Red
+    exit 1
 }
 
-# Vérifier si la machine est un contrôleur de domaine
+# Vérification si la machine est déjà un contrôleur de domaine
 if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
-    Write-Host "Promotion du serveur en tant que contrôleur de domaine..." -ForegroundColor Cyan
+    Write-Host "La machine n'est pas encore un contrôleur de domaine. Promotion en cours..." -ForegroundColor Cyan
     Import-Module ADDSDeployment
 
     # Promotion de la machine en contrôleur de domaine avec les paramètres spécifiques
@@ -71,7 +73,7 @@ if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
                        -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) `
                        -Force `
                        -InstallDns $true `
-                       -NoGlobalCatalog:$false  # Enlever la partie NoGlobalCatalog si cela pose problème
+                       -NoGlobalCatalog:$false
 
     Write-Host "Redémarrage du serveur pour finaliser la promotion..." -ForegroundColor Yellow
     Restart-Computer -Force
@@ -155,13 +157,13 @@ foreach ($CsvPath in $CsvFiles.Keys) {
             -Name $displayName `
             -GivenName $user.first_name `
             -Surname $user.last_name `
-            -Path $TargetOU `
+            -DisplayName $displayName `
             -AccountPassword $password `
             -Enabled $true `
-            -PasswordNeverExpires $true `
-            -PassThru
+            -PassThru `
+            -Path $TargetOU
         }
     }
 }
 
-Write-Host "Opération terminée." -ForegroundColor Green
+Write-Host "Le script a terminé l'exécution." -ForegroundColor Green
