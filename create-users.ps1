@@ -9,7 +9,6 @@ param (
 
 # Vérification et application de l'IP fixe
 $networkAdapter = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
-
 if ($networkAdapter -and $networkAdapter.PrefixOrigin -eq 'Manual') {
     Write-Host "L'adresse IP est déjà statique." -ForegroundColor Green
 } else {
@@ -33,31 +32,38 @@ if ($NewComputerName) {
     if ($currentName -ne $NewComputerName) {
         Write-Host "Renommage de la machine de $currentName en $NewComputerName..." -ForegroundColor Cyan
         Rename-Computer -NewName $NewComputerName -Force -ErrorAction Stop
-        Write-Host "Un redémarrage est requis pour appliquer le changement de nom. Redémarrage en cours..." -ForegroundColor Yellow
-        Restart-Computer -Force
-        exit
+        Write-Host "Redémarrage nécessaire après le changement de nom..." -ForegroundColor Yellow
+        if (-not $DryRun) {
+            Restart-Computer -Force
+            exit
+        }
     } else {
         Write-Host "Le nom de la machine est déjà $NewComputerName." -ForegroundColor Green
     }
 }
 
-# Installation du rôle ADDS (Active Directory Domain Services)
-Write-Host "Installation du rôle ADDS..." -ForegroundColor Cyan
-Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+# Vérifier si la machine est déjà un contrôleur de domaine
+if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
+    Write-Host "Installation du rôle ADDS..." -ForegroundColor Cyan
+    Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
 
-# Promotion du serveur en tant que contrôleur de domaine
-Write-Host "Promotion du serveur en tant que contrôleur de domaine..." -ForegroundColor Cyan
-Import-Module ADDSDeployment
-Install-ADDSForest -DomainName "RAGNAR.lan" `
-                   -DomainNetbiosName "RAGNAR" `
-                   -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) `
-                   -Force
+    Write-Host "Promotion du serveur en tant que contrôleur de domaine..." -ForegroundColor Cyan
+    Import-Module ADDSDeployment
+    Install-ADDSForest -DomainName "RAGNAR.lan" `
+                       -DomainNetbiosName "RAGNAR" `
+                       -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) `
+                       -Force
 
-Write-Host "Redémarrage du serveur pour finaliser la promotion..." -ForegroundColor Cyan
-Restart-Computer -Force
-exit
+    Write-Host "Redémarrage du serveur pour finaliser la promotion..." -ForegroundColor Yellow
+    if (-not $DryRun) {
+        Restart-Computer -Force
+        exit
+    }
+} else {
+    Write-Host "Le serveur est déjà un contrôleur de domaine." -ForegroundColor Green
+}
 
-# Création des unités d'organisation (OU) dans Active Directory
+# Création des unités d'organisation (OU) après la promotion
 Write-Host "Création des unités d'organisation..." -ForegroundColor Cyan
 $OUs = @("OU=Client,OU=Utilisateurs,DC=RAGNAR,DC=lan", "OU=Administrateur,OU=Utilisateurs,DC=RAGNAR,DC=lan")
 foreach ($OU in $OUs) {
