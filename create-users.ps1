@@ -47,12 +47,18 @@ if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
 }
 Import-Module ActiveDirectory
 
-# Vérifier si la machine est un contrôleur de domaine
-if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
-    Write-Host "Installation du rôle ADDS..." -ForegroundColor Cyan
+# Vérifier si le rôle ADDS est déjà installé
+$ADDSFeature = Get-WindowsFeature -Name AD-Domain-Services
+if ($ADDSFeature.Installed) {
+    Write-Host "Le rôle ADDS est déjà installé." -ForegroundColor Green
+} else {
+    Write-Host "Le rôle ADDS n'est pas installé. Installation en cours..." -ForegroundColor Cyan
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+}
 
-    Write-Host "Promotion du serveur en tant que contrôleur de domaine..." -ForegroundColor Cyan
+# Vérification du serveur contrôleur de domaine
+if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
+    Write-Host "Le serveur n'est pas encore un contrôleur de domaine, promotion en cours..." -ForegroundColor Cyan
     Import-Module ADDSDeployment
     Install-ADDSForest -DomainName "RAGNAR.lan" `
                        -DomainNetbiosName "RAGNAR" `
