@@ -62,6 +62,14 @@ if ($ADDSFeature.Installed) {
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
 }
 
+# Après l'installation du rôle ADDS, redémarrage du serveur
+Write-Host "Le rôle ADDS a été installé. Redémarrage du serveur pour finaliser la configuration..." -ForegroundColor Yellow
+Restart-Computer -Force
+exit  # On s'arrête ici pour que le serveur redémarre et termine la promotion
+
+# --- Après le redémarrage ---
+# Reprise du script après le redémarrage
+
 # Vérification du serveur contrôleur de domaine
 if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
     Write-Host "Le serveur n'est pas encore un contrôleur de domaine, promotion en cours..." -ForegroundColor Cyan
@@ -73,7 +81,7 @@ if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
 
     Write-Host "Redémarrage du serveur pour finaliser la promotion..." -ForegroundColor Yellow
     Restart-Computer -Force
-    exit
+    exit  # On s'arrête ici pour que le serveur redémarre après la promotion
 } else {
     Write-Host "Le serveur est déjà un contrôleur de domaine." -ForegroundColor Green
 }
