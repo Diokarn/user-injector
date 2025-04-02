@@ -40,9 +40,15 @@ if ($NewComputerName) {
     }
 }
 
-# Vérifier si la machine est déjà un contrôleur de domaine
-Import-Module ActiveDirectory -ErrorAction SilentlyContinue
-if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
+# Vérification du module Active Directory
+if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
+    Write-Host "Le module Active Directory n'est pas installé ou disponible." -ForegroundColor Red
+    exit 1
+}
+Import-Module ActiveDirectory
+
+# Vérifier si la machine est un contrôleur de domaine
+if (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue)) {
     Write-Host "Installation du rôle ADDS..." -ForegroundColor Cyan
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
 
@@ -60,21 +66,23 @@ if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
     Write-Host "Le serveur est déjà un contrôleur de domaine." -ForegroundColor Green
 }
 
-# Attendre que les services AD soient opérationnels après la promotion
+# Pause pour s'assurer que les services AD sont opérationnels après redémarrage
+Start-Sleep -Seconds 60
+
+# Vérification des services AD après redémarrage
 $retryCount = 0
 $maxRetries = 20 # Nombre max de tentatives (20 x 10s = 200 secondes)
 $waitTime = 10  # Temps d'attente entre chaque tentative en secondes
 
 Write-Host "Vérification de la disponibilité des services AD..." -ForegroundColor Cyan
-Import-Module ActiveDirectory -ErrorAction SilentlyContinue
-while (-not (Get-Command Get-ADDomain -ErrorAction SilentlyContinue) -and $retryCount -lt $maxRetries) {
+
+while (-not (Test-ComputerSecureChannel -ErrorAction SilentlyContinue) -and $retryCount -lt $maxRetries) {
     Write-Host "Les services AD ne sont pas encore disponibles. Tentative $retryCount/$maxRetries..." -ForegroundColor Yellow
     Start-Sleep -Seconds $waitTime
     $retryCount++
-    Import-Module ActiveDirectory -ErrorAction SilentlyContinue
 }
 
-if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
+if ($retryCount -eq $maxRetries) {
     Write-Host "Échec : Les services AD ne sont toujours pas disponibles après $maxRetries tentatives." -ForegroundColor Red
     exit 1
 }
