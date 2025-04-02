@@ -41,6 +41,7 @@ if ($NewComputerName) {
 }
 
 # Vérifier si la machine est déjà un contrôleur de domaine
+Import-Module ActiveDirectory -ErrorAction SilentlyContinue
 if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
     Write-Host "Installation du rôle ADDS..." -ForegroundColor Cyan
     Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
@@ -65,15 +66,15 @@ $maxRetries = 20 # Nombre max de tentatives (20 x 10s = 200 secondes)
 $waitTime = 10  # Temps d'attente entre chaque tentative en secondes
 
 Write-Host "Vérification de la disponibilité des services AD..." -ForegroundColor Cyan
-
-while (-not (Get-ADDomain -ErrorAction SilentlyContinue) -and $retryCount -lt $maxRetries) {
+Import-Module ActiveDirectory -ErrorAction SilentlyContinue
+while (-not (Get-Command Get-ADDomain -ErrorAction SilentlyContinue) -and $retryCount -lt $maxRetries) {
     Write-Host "Les services AD ne sont pas encore disponibles. Tentative $retryCount/$maxRetries..." -ForegroundColor Yellow
-    Start-Service NTDS  # Démarrer le service AD si nécessaire
     Start-Sleep -Seconds $waitTime
     $retryCount++
+    Import-Module ActiveDirectory -ErrorAction SilentlyContinue
 }
 
-if ($retryCount -eq $maxRetries) {
+if (-not (Get-ADDomain -ErrorAction SilentlyContinue)) {
     Write-Host "Échec : Les services AD ne sont toujours pas disponibles après $maxRetries tentatives." -ForegroundColor Red
     exit 1
 }
@@ -142,4 +143,3 @@ foreach ($CsvPath in $CsvFiles.Keys) {
 }
 
 Write-Host "Opération terminée." -ForegroundColor Green
-
