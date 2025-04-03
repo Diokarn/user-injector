@@ -1,87 +1,127 @@
-# Créer un ADDS et DNS + peupler un AD avec des utilisateurs
-## Je vous conseil de lire ce README 
+# 🚀 Création d'un ADDS et DNS + Peuplement d'un Active Directory
 
-Pour créer un ADDS DNS il faut commencer par :
+Ce guide vous explique comment installer un Active Directory Domain Services (ADDS) et un serveur DNS sur Windows Server, puis y ajouter des utilisateurs en utilisant un script PowerShell.
 
-Installer une version de Windows Serveur
+## 📌 Prérequis
+- Une installation de **Windows Server**.
+- Un accès administrateur sur le serveur.
+- PowerShell.
+- Une connexion Internet pour télécharger les scripts.
 
-Taper cette commande dans Powershell pour créer les dossiers et télécharger le zip automatiquement :
+---
 
-    $RepoUrl = "https://github.com/Diokarn/user-injector/archive/refs/heads/main.zip"
-    $DestinationPath = "C:\Scripts\user-injector"
-    $ZipPath = "$DestinationPath\repo.zip"
-    if (-not (Test-Path $DestinationPath)) {
+## 📥 1. Téléchargement du Script
+
+Exécutez la commande suivante dans PowerShell pour créer les dossiers nécessaires et télécharger automatiquement le script :
+
+```powershell
+$RepoUrl = "https://github.com/Diokarn/user-injector/archive/refs/heads/main.zip"
+$DestinationPath = "C:\Scripts\user-injector"
+$ZipPath = "$DestinationPath\repo.zip"
+
+if (-not (Test-Path $DestinationPath)) {
     New-Item -ItemType Directory -Path $DestinationPath | Out-Null
-    }
-    Invoke-WebRequest -Uri $RepoUrl -OutFile $ZipPath
-    Expand-Archive -Path $ZipPath -DestinationPath $DestinationPath -Force
-    Remove-Item $ZipPath
+}
 
+Invoke-WebRequest -Uri $RepoUrl -OutFile $ZipPath
+Expand-Archive -Path $ZipPath -DestinationPath $DestinationPath -Force
+Remove-Item $ZipPath
+```
 
-Fixer l'adresse IP manuellement dans le fichier create-users.ps1 à la ligne 1 
+---
 
-    [string]$StaticIP = TONIPDUSERVEUR,
+## ⚙️ 2. Configuration des Paramètres du Script
 
-Changer le nom du serveur dans le fichier create-users.ps1 à la ligne 2 
+Avant d'exécuter le script, modifiez les paramètres suivants dans le fichier `create-users.ps1` :
 
-    [string]$NewComputerName = TONNOMDUSERVEUR,
+1. **Adresse IP du serveur** (ligne 1) :
+   ```powershell
+   [string]$StaticIP = "TONIPDUSERVEUR"
+   ```
+2. **Nom du serveur** (ligne 2) :
+   ```powershell
+   [string]$NewComputerName = "TONNOMDUSERVEUR"
+   ```
+3. **Subnet Mask** (ligne 3) :
+   ```powershell
+   [string]$SubnetMask = "TONSUBNETMASK"
+   ```
+4. **Gateway** (ligne 4) :
+   ```powershell
+   [string]$Gateway = "TAGATEWAY"
+   ```
+5. **DNS** (ligne 5) :
+   ```powershell
+   [string[]]$DNSServers = "127.0.0.1"
+   ```
 
-Mettre le SubnetMask dans le fichier create-users.ps1 à la ligne 3 
+---
 
-    [string]$SubnetMask = TONSUBNETMASK,
+## 🌐 3. Configuration du Domaine et des OUs
 
-Indiquer la Gateway dans le fichier create-users.ps1 à la ligne 4 
+1. **Nom du domaine** (ligne 45 et 46) :
+   ```powershell
+   $domainName = "VOTREDOMAINE.lan"
+   $netbiosName = "VOTREDOMAINE"
+   ```
+2. **Unités Organisationnelles (OU)** (ligne 100-102) :
+   ```powershell
+   $ouList = @(
+       "OU=Utilisateurs,DC=VOTREDOMAINE,DC=lan",
+       "OU=Client,OU=Utilisateurs,DC=VOTREDOMAINE,DC=lan",
+       "OU=Administrateur,OU=Utilisateurs,DC=VOTREDOMAINE,DC=lan"
+   )
+   ```
+3. **Importation des utilisateurs CSV** (ligne 159-160) :
+   ```powershell
+   Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\users.csv" -ouPath "OU=Client,OU=Utilisateurs,DC=VOTREDOMAINE,DC=lan"
+   Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\admin.csv" -ouPath "OU=Administrateur,OU=Utilisateurs,DC=VOTREDOMAINE,DC=lan"
+   ```
+   **⚠️ Attention** : Les fichiers CSV doivent respecter le format suivant : `first_name,last_name,password` et être nommés `admin.csv` et `users.csv`.
 
-    [string]$Gateway = TAGATEWAY,
+---
 
-Indiquer le DNS dans le fichier create-users.ps1 à la ligne 5 
+## ▶️ 4. Exécution du Script
 
-    [string[]]$DNSServers = 127.0.0.1,
+### 🔍 4.1 Test du script en mode `DryRun`
+Avant d'exécuter les modifications, vérifiez que le script fonctionne correctement :
+```powershell
+cd C:\Scripts\user-injector\user-injector-main
+.\create-users.ps1 -DryRun
+```
 
+### 🚀 4.2 Exécution du script
+Si tout est correct, lancez l'exécution complète :
+```powershell
+cd C:\Scripts\user-injector\user-injector-main
+.\create-users.ps1
+```
 
-Il faut changer ces deux lignes en fonction du nom de domaine voulu à la ligne 45 et 46 :
+Le script va :
+1. Installer l'ADDS et configurer le serveur comme **contrôleur de domaine**.
+2. Installer le serveur DNS.
+3. Redémarrer le serveur.
 
-    $domainName = "RAGNARDC.lan"
-    $netbiosName = "RAGNARDC"
+Après chaque redémarrage, relancez la commande suivante jusqu'à ce que toutes les étapes soient complétées :
+```powershell
+cd C:\Scripts\user-injector\user-injector-main
+.\create-users.ps1
+```
 
-Il faut aussi changer ces trois lignes pour créer les OU souhaitées et changer au passage le nom du DC, à la ligne 100,101,102 :
+---
 
-    $ouList = @(
-        "OU=Utilisateurs,DC=RAGNARDC,DC=lan",
-        "OU=Client,OU=Utilisateurs,DC=RAGNARDC,DC=lan",
-        "OU=Administrateur,OU=Utilisateurs,DC=RAGNARDC,DC=lan"
-    )
+## ✅ 5. Vérification
+Une fois le script terminé, vérifiez que :
+- ✅ Le serveur est bien **contrôleur de domaine**.
+- ✅ Le serveur DNS fonctionne correctement.
+- ✅ Les utilisateurs et OUs sont bien créés.
 
-Et une dernière modification en modifiant bien les OU renseigné plus haut et de changer le nom du DC à la ligne 159 et 160 :
+---
 
-    Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\users.csv" -ouPath "OU=Client,OU=Utilisateurs,DC=RAGNARDC,DC=lan"
+## 📌 6. Remarques
+- ℹ️ Si vous rencontrez des erreurs, exécutez le script en mode `DryRun` pour identifier les problèmes.
+- 🔍 Vérifiez que les fichiers CSV sont bien formatés.
+- 🛠️ Assurez-vous que les noms de domaine et les OUs correspondent à votre configuration.
 
-    Create-ADUserFromCSV -csvPath "C:\Scripts\user-injector\user-injector-main\admin.csv" -ouPath "OU=Administrateur,OU=Utilisateurs,DC=RAGNARDC,DC=lan"
+**Bonne installation ! 🚀**
 
-Faites attention au nom des fichiers CSV et à leurs formats, dans ce cas précis, mon fichier csv est configurer de cette sorte : first_name,last_name,password, le code correspond à ce format et les noms des fichiers sont admin.csv et users.csv
-
-Une fois les dossiers crées et les modifications faites dans le fichier create-users.ps1, vous pouvez lancer cette commande qui exécutera le script :
-
--D'abord en -DryRun (pour tester si le code s'exécute sans erreurs)
-
-    cd C:\Scripts\user-injector\user-injector-main
-    .\create-users.ps1 -DryRun
-
--Ensuite, en exécutant directement la commande sans -DryRun
-
-    cd C:\Scripts\user-injector\user-injector-main
-    .\create-users.ps1
-
-Powershell va créer l'ADDS sur le serveur puis redémarrer
-Une fois redémarrer, il faudra redémarrer le script une nouvelle fois avec cette commande :
-
-    cd C:\Scripts\user-injector\user-injector-main
-    .\create-users.ps1
-
-Il va passer le serveur en contrôleur de domaine, installer le DNS et redémarrer une nouvelle fois
-Après le redémarrage relancer une nouvelle fois cette commande :
-
-    cd C:\Scripts\user-injector\user-injector-main
-    .\create-users.ps1
-
-Cette fois, il va créer les OU et les utilisateurs des fichiers CSV
