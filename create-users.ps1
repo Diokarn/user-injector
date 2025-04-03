@@ -54,8 +54,8 @@ if ($NewComputerName) {
 # Définition des paramètres du domaine
 $domainName = "RAGNARDC.lan" # Nom complet du domaine
 $netbiosName = "RAGNARDC" # Nom NetBIOS du domaine
-$adminPassword = (ConvertTo-SecureString "Admin123!" -AsPlainText -Force) # Mot de passe administrateur
-$SafeModeAdminPassword = (ConvertTo-SecureString "Admin123!" -AsPlainText -Force) # Mot de passe pour le mode de restauration des services d'annuaire
+$adminPassword = (ConvertTo-SecureString "Xd?TgCpACo0l!" -AsPlainText -Force) # Mot de passe administrateur
+$SafeModeAdminPassword = (ConvertTo-SecureString "Xd?TgCpACo0l!" -AsPlainText -Force) # Mot de passe pour le mode de restauration des services d'annuaire
 
 # Vérification et installation du rôle AD DS
 if (-not (Get-WindowsFeature -Name AD-Domain-Services).Installed) {
